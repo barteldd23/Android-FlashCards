@@ -9,8 +9,14 @@ import android.util.Log;
 import android.view.GestureDetector;
 import android.view.MotionEvent;
 import android.view.View;
+import android.view.animation.Animation;
+import android.view.animation.AnimationUtils;
 import android.widget.ImageView;
 import android.widget.TextView;
+
+import java.io.BufferedReader;
+import java.io.InputStream;
+import java.io.InputStreamReader;
 
 public class MainActivity extends AppCompatActivity implements GestureDetector.OnGestureListener {
     public static final String TAG = "MainActivity";
@@ -25,6 +31,11 @@ public class MainActivity extends AppCompatActivity implements GestureDetector.O
             R.drawable.wisconsin,
             R.drawable.minnesota,
             R.drawable.ohio
+    };
+    int[] textfiles = {
+            R.raw.wisconsin,
+            R.raw.minnesota,
+            R.raw.ohio
     };
 
     int cardNo = 0;
@@ -43,13 +54,58 @@ public class MainActivity extends AppCompatActivity implements GestureDetector.O
         imgCard = findViewById(R.id.imageView);
         tvCard = findViewById(R.id.tvInfo);
 
-        imgCard.setVisibility(View.VISIBLE);
-        imgCard.setImageResource(imgs[cardNo]);
-        tvCard.setText(states[cardNo].getName());
+        updateToNextCard();
         
         gestureDetector = new GestureDetector(this, this);
         Log.d(TAG, "onCreate: Complete");
 
+    }
+
+    private void updateToNextCard()
+    {
+        //read a file targeting an integer listed of files.
+        states[cardNo].setCapital(readFile(textfiles[cardNo]));
+
+        isFront = true;
+        imgCard.setVisibility(View.VISIBLE);
+        imgCard.setImageResource(imgs[cardNo]);
+        tvCard.setText(states[cardNo].getName());
+    }
+
+    private String readFile(int fileId)
+    {
+        InputStream inputStream;
+        InputStreamReader inputStreamReader;
+        BufferedReader bufferedReader;
+        StringBuffer stringBuffer;
+        try
+        {
+            inputStream = getResources().openRawResource(fileId);
+            inputStreamReader = new InputStreamReader(inputStream);
+            bufferedReader = new BufferedReader(inputStreamReader);
+            stringBuffer = new StringBuffer();
+
+            String data;
+
+            while((data = bufferedReader.readLine()) != null)
+            {
+                stringBuffer.append(data).append("\n");
+            }
+
+            // Clean up objects
+
+            bufferedReader.close();
+            inputStreamReader.close();
+            inputStream.close();
+            Log.d(TAG, "readFile: " + stringBuffer.toString());
+            return stringBuffer.toString();
+        }
+        catch ( Exception e)
+        {
+            Log.d(TAG, "readFile: " + e.getMessage());
+            e.printStackTrace();
+            return e.getMessage();
+        }
     }
 
     // One of those things that I have to remember!!!!!!!!!!!!!!!!!!!!!
@@ -116,8 +172,75 @@ public class MainActivity extends AppCompatActivity implements GestureDetector.O
     }
 
     @Override
-    public boolean onFling(@Nullable MotionEvent e1, @NonNull MotionEvent e2, float velocityX, float velocityY) {
+    public boolean onFling(@Nullable MotionEvent motionEvent1,
+                           @NonNull MotionEvent motionEvent2,
+                           float velocityX,
+                           float velocityY) {
         Log.d(TAG, "onFling: ");
-        return false;
+
+        int numCards = states.length;
+
+        try
+        {
+            // Decide which direction I am flinging
+            int x1 = (int)(motionEvent1 != null ? motionEvent1.getX() : 0);
+            int x2 = (int)motionEvent2.getX();
+
+
+            if (x1 < x2)
+            {
+                Animation move = AnimationUtils.loadAnimation(this, R.anim.moveright);
+                move.setAnimationListener(new AnimationListener());
+                imgCard.startAnimation(move);
+                tvCard.startAnimation(move);
+
+                // Swipe right
+                Log.d(TAG, "onFling: right");
+                cardNo = (cardNo + 1 ) % numCards;
+
+            }
+            else
+            {
+                Animation move = AnimationUtils.loadAnimation(this, R.anim.moveleft);
+                move.setAnimationListener(new AnimationListener());
+                imgCard.startAnimation(move);
+                tvCard.startAnimation(move);
+
+                // Swipe left
+                Log.d(TAG, "onFling: left");
+                cardNo = (cardNo - 1 + numCards ) % numCards;
+            }
+            // updateToNextCard(); This is done in the animation listener
+
+        }
+        catch (Exception ex)
+        {
+            Log.e(TAG, "onFlingError: " + ex.getMessage() );
+            ex.printStackTrace();
+        }
+
+        return true;
     }
+
+    private class AnimationListener implements Animation.AnimationListener{
+        @Override
+        public void onAnimationStart(Animation animation) {
+
+        }
+
+        @Override
+        public void onAnimationEnd(Animation animation)
+        {
+            Log.d(TAG, "onAnimationEnd: ");
+            updateToNextCard();
+
+        }
+
+        @Override
+        public void onAnimationRepeat(Animation animation) {
+
+        }
+    }
+
+
 }
